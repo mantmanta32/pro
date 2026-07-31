@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { fetchKlines, fetch24hTicker, getWebSocketUrl, formatSymbol } from '../services/binance';
+import { generateSignals } from '../utils/indicators';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
 const DEFAULT_TIMEFRAME = '1d';
@@ -213,6 +214,12 @@ export function useCryptoChart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
+  // Compute signals from candles (CVD, EMA, buy/sell markers)
+  const signals = useMemo(() => {
+    if (candles.length < 30) return { markers: [], cvd: [], ema9: [], ema21: [] };
+    return generateSignals(candles);
+  }, [candles]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -232,6 +239,7 @@ export function useCryptoChart() {
     isConnected,
     statusText,
     error,
+    signals,
 
     // Actions
     changeSymbol,

@@ -234,6 +234,44 @@
   font-weight: 500;
 }
 
+/* Indicator Legend */
+.indicator-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #1a1a24;
+  border-radius: 8px;
+  border: 1px solid #2a2a35;
+  font-size: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9ca3af;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-icon {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.signal-legend {
+  color: #c9d1d9;
+  font-weight: 500;
+}
+
 /* Price Stats */
 .price-stats {
   display: flex;

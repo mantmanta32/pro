@@ -16,6 +16,7 @@ function App() {
     isConnected,
     statusText,
     error,
+    signals,
     changeSymbol,
     changeTimeframe,
   } = useCryptoChart();
@@ -63,9 +64,34 @@ function App() {
           <PriceStats ticker={ticker} symbol={symbol} />
         </div>
 
+        {/* Indicator Legend */}
+        <div className="indicator-legend">
+          <div className="legend-item">
+            <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
+            <span>CVD (Kümülatif Hacim Delta)</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-dot" style={{ background: '#a78bfa' }}></span>
+            <span>EMA 9</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-dot" style={{ background: '#60a5fa' }}></span>
+            <span>EMA 21</span>
+          </div>
+          <div className="legend-item signal-legend">
+            <span className="legend-icon">▲</span>
+            <span>AL / 💪 AL (güçlü)</span>
+          </div>
+          <div className="legend-item signal-legend">
+            <span className="legend-icon" style={{ color: '#ef4444' }}>▼</span>
+            <span>SAT / 💪 SAT (güçlü)</span>
+          </div>
+        </div>
+
         <div className="chart-wrapper">
           <Chart 
-            candles={candles} 
+            candles={candles}
+            signals={signals}
             onChartReady={() => {}} 
           />
           
