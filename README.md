@@ -1,56 +1,32 @@
-# 📈 CryptoLive - React + Vite
+# React + TypeScript + Vite
 
-Modern, modüler yapıya sahip gerçek zamanlı kripto para grafik uygulaması.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-**Özellikler:**
-- Binance WebSocket + REST API entegrasyonu
-- Lightweight Charts ile profesyonel mum grafiği
-- Gerçek zamanlı fiyat ve hacim güncellemeleri
-- Farklı zaman dilimleri (1m, 5m, 15m, 1h, 4h, 1d, 1w)
-- Herhangi bir USDT çifti (örn: BTC, ETH, SOL)
-- Tamamen modüler React yapısı
+Currently, two official plugins are available:
 
-## Kullanılan Teknolojiler
-- React 19 + Vite
-- Lightweight Charts
-- Custom Hooks & Service Layer
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Proje Yapısı (Modüler)
+## React Compiler
 
-```
-src/
-├── components/
-│   ├── Chart.jsx              # LightweightCharts wrapper
-│   ├── PriceStats.jsx         # Fiyat, değişim, 24h istatistikleri
-│   ├── StatusBar.jsx          # Bağlantı durumu
-│   ├── SymbolInput.jsx        # Sembol değiştirme
-│   └── TimeframeSelector.jsx  # Zaman dilimi seçici
-├── hooks/
-│   └── useCryptoChart.js      # Tüm state & WebSocket mantığı
-├── services/
-│   └── binance.js             # API çağrıları
-├── utils/
-│   └── formatters.js          # Fiyat/hacim formatlayıcıları
-├── App.jsx
-└── App.css
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
 ```
 
-## Başlatma
-
-```bash
-npm install
-npm run dev
-```
-
-Uygulama: http://localhost:5173
-
-## Nasıl Kullanılır?
-
-1. Sol üstteki inputa coin adı yaz (örn: `ETH`, `SOL`)
-2. **GÜNCELLE** butonuna bas
-3. Zaman dilimlerini üstteki butonlarla değiştir
-4. Gerçek zamanlı mumlar ve fiyatlar anında güncellenir
-
----
-
-Orijinal vanilla JS versiyonundan tamamen React + Vite modüler yapıya dönüştürülmüştür.
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
