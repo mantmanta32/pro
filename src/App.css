@@ -1,0 +1,402 @@
+/* Crypto Live - Modern Dark Theme */
+
+.crypto-app {
+  min-height: 100vh;
+  background: #0f0f17;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #14141c;
+  border-bottom: 1px solid #2a2a35;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-icon {
+  font-size: 28px;
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.header-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  transition: background 0.2s;
+}
+
+.status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.status-text {
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+}
+
+.status-info {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #14141c;
+  border-bottom: 1px solid #2a2a35;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.controls-left,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Symbol Input */
+.symbol-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.symbol-input-group {
+  display: flex;
+  align-items: center;
+  background: #1f2029;
+  border: 1px solid #2a2a35;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.symbol-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 14px;
+  width: 110px;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.symbol-input:focus {
+  background: #25262f;
+}
+
+.symbol-suffix {
+  background: #2a2a35;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  border-left: 1px solid #2a2a35;
+}
+
+.update-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.update-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* Timeframe Selector */
+.timeframe-selector {
+  display: flex;
+  gap: 4px;
+  background: #1f2029;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #2a2a35;
+}
+
+.timeframe-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.timeframe-btn:hover {
+  color: #fff;
+  background: #2a2a35;
+}
+
+.timeframe-btn.active {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Chart Section */
+.chart-section {
+  flex: 1;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.chart-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.chart-title .pair {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: #fff;
+}
+
+.chart-title .exchange {
+  font-size: 16px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Price Stats */
+.price-stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.current-price {
+  font-size: 21px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-change {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.stat-change.positive {
+  color: #22c55e;
+}
+
+.stat-change.negative {
+  color: #ef4444;
+}
+
+.symbol-stat .stat-value {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+/* Chart Wrapper */
+.chart-wrapper {
+  flex: 1;
+  background: #14141c;
+  border: 1px solid #2a2a35;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Loading & Error */
+.chart-loading,
+.chart-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 28, 0.85);
+  z-index: 10;
+  gap: 12px;
+}
+
+.chart-loading p,
+.chart-error p {
+  color: #9ca3af;
+  margin: 0;
+}
+
+.loader {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #2a2a35;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.chart-error button {
+  margin-top: 8px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chart-error button:hover {
+  background: #dc2626;
+}
+
+/* Footer */
+.app-footer {
+  padding: 16px 24px;
+  background: #14141c;
+  border-top: 1px solid #2a2a35;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footer-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.footer-note {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controls-left,
+  .controls-right {
+    justify-content: center;
+  }
+
+  .price-stats {
+    gap: 16px;
+  }
+
+  .chart-header {
+    flex-direction: column;
+  }
+
+  .app-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}
