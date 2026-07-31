@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { createChart } from 'lightweight-charts';
+import {
+  createChart,
+  CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
+  createSeriesMarkers,
+} from 'lightweight-charts';
 
 export default function Chart({ candles, signals }) {
   const chartContainerRef = useRef(null);
@@ -9,10 +15,11 @@ export default function Chart({ candles, signals }) {
   const cvdSeriesRef = useRef(null);
   const ema9SeriesRef = useRef(null);
   const ema21SeriesRef = useRef(null);
+  const markersRef = useRef(null);
 
   const seriesReady = useRef(false);
 
-  // Create chart instance
+  // Create chart instance — only once on mount
   useEffect(() => {
     const container = chartContainerRef.current;
     if (!container) return;
@@ -29,7 +36,7 @@ export default function Chart({ candles, signals }) {
         horzLines: { color: '#2a2a35' },
       },
       crosshair: {
-        mode: 0, // Normal
+        mode: 0,
       },
       rightPriceScale: {
         borderColor: '#2a2a35',
@@ -42,7 +49,7 @@ export default function Chart({ candles, signals }) {
     });
 
     // --- Candlestick series ---
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#22c55e',
       downColor: '#ef4444',
       borderVisible: false,
@@ -51,23 +58,27 @@ export default function Chart({ candles, signals }) {
     });
 
     // --- Volume histogram ---
-    const volumeSeries = chart.addHistogramSeries({
+    const volumeSeries = chart.addSeries(HistogramSeries, {
       color: '#3b82f6',
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
-      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.84, bottom: 0 },
     });
 
-    // --- CVD line (in a sub-pane between volume and price) ---
-    const cvdSeries = chart.addLineSeries({
+    // --- CVD line ---
+    const cvdSeries = chart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 2,
       priceScaleId: 'cvd',
-      scaleMargins: { top: 0.72, bottom: 0.12 },
+    });
+    chart.priceScale('cvd').applyOptions({
+      scaleMargins: { top: 0.75, bottom: 0.14 },
     });
 
     // --- EMA 9 line ---
-    const ema9Series = chart.addLineSeries({
+    const ema9Series = chart.addSeries(LineSeries, {
       color: '#a78bfa',
       lineWidth: 1.5,
       priceLineVisible: false,
@@ -75,21 +86,15 @@ export default function Chart({ candles, signals }) {
     });
 
     // --- EMA 21 line ---
-    const ema21Series = chart.addLineSeries({
+    const ema21Series = chart.addSeries(LineSeries, {
       color: '#60a5fa',
       lineWidth: 1.5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
 
-    // Price scales config
-    chart.priceScale('cvd').applyOptions({
-      scaleMargins: { top: 0.75, bottom: 0.14 },
-    });
-
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.84, bottom: 0 },
-    });
+    // --- Signal markers (v5 API: createSeriesMarkers) ---
+    const markers = createSeriesMarkers(candlestickSeries, []);
 
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
@@ -97,6 +102,7 @@ export default function Chart({ candles, signals }) {
     cvdSeriesRef.current = cvdSeries;
     ema9SeriesRef.current = ema9Series;
     ema21SeriesRef.current = ema21Series;
+    markersRef.current = markers;
     seriesReady.current = true;
 
     // Resize handler
@@ -118,7 +124,7 @@ export default function Chart({ candles, signals }) {
       chart.remove();
       seriesReady.current = false;
     };
-  }, []);
+  }, []); // ⬅️ empty deps: runs once, never re-creates
 
   // Update candlestick + volume
   useEffect(() => {
@@ -126,6 +132,8 @@ export default function Chart({ candles, signals }) {
 
     const cSeries = candlestickSeriesRef.current;
     const vSeries = volumeSeriesRef.current;
+
+    if (!cSeries || !vSeries) return;
 
     cSeries.setData(candles);
 
@@ -148,6 +156,8 @@ export default function Chart({ candles, signals }) {
     const cvdS = cvdSeriesRef.current;
     const e9S = ema9SeriesRef.current;
     const e21S = ema21SeriesRef.current;
+
+    if (!cSeries || !cvdS || !e9S || !e21S) return;
 
     // CVD data
     if (signals.cvd && signals.cvd.length > 0) {
@@ -181,10 +191,10 @@ export default function Chart({ candles, signals }) {
     }
 
     // Signal markers
-    if (signals.markers && signals.markers.length > 0) {
-      cSeries.setMarkers(signals.markers);
-    } else {
-      cSeries.setMarkers([]);
+    if (markersRef.current) {
+      markersRef.current.setMarkers(
+        signals.markers && signals.markers.length > 0 ? signals.markers : []
+      );
     }
 
     // Fit
