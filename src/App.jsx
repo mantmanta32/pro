@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { useCryptoChart } from './hooks/useCryptoChart';
+import { useLiquidation } from './hooks/useLiquidation';
+import { generateLiquidationMarkers, formatLiqSize } from './utils/indicators';
 import Chart from './components/Chart';
 import SymbolInput from './components/SymbolInput';
 import TimeframeSelector from './components/TimeframeSelector';
@@ -21,6 +24,18 @@ function App() {
     changeTimeframe,
   } = useCryptoChart();
 
+  const { liquidations, liqConnected, allLiqStats } = useLiquidation(symbol);
+
+  // Merge liquidation markers into signals
+  const mergedSignals = useMemo(() => {
+    if (!signals) return null;
+    const liqMarkers = generateLiquidationMarkers(liquidations, candles);
+    return {
+      ...signals,
+      markers: [...signals.markers, ...liqMarkers],
+    };
+  }, [signals, liquidations, candles]);
+
   return (
     <div className="crypto-app">
       {/* Header */}
@@ -33,23 +48,58 @@ function App() {
           <div className="header-subtitle">Binance Gerçek Zamanlı Grafik</div>
         </div>
 
-        <StatusBar isConnected={isConnected} statusText={statusText} />
+        <StatusBar
+          isConnected={isConnected}
+          statusText={statusText}
+          liqConnected={liqConnected}
+        />
       </header>
 
       {/* Controls */}
       <div className="controls">
         <div className="controls-left">
-          <SymbolInput 
-            currentSymbol={symbol} 
-            onUpdate={changeSymbol} 
+          <SymbolInput
+            currentSymbol={symbol}
+            onUpdate={changeSymbol}
           />
         </div>
 
         <div className="controls-right">
-          <TimeframeSelector 
-            current={timeframe} 
-            onChange={changeTimeframe} 
+          <TimeframeSelector
+            current={timeframe}
+            onChange={changeTimeframe}
           />
+        </div>
+      </div>
+
+      {/* Liquidation Quick Stats Bar */}
+      <div className="liq-stats-bar">
+        <div className="liq-stat">
+          <span className="liq-stat-dot liq-dot-red"></span>
+          <span className="liq-stat-label">💀 Long Liq</span>
+          <span className="liq-stat-val">{allLiqStats.totalLongs}</span>
+        </div>
+        <div className="liq-stat">
+          <span className="liq-stat-dot liq-dot-green"></span>
+          <span className="liq-stat-label">💰 Short Liq</span>
+          <span className="liq-stat-val">{allLiqStats.totalShorts}</span>
+        </div>
+        <div className="liq-stat">
+          <span className="liq-stat-label">Vol</span>
+          <span className="liq-stat-val">{formatLiqSize(allLiqStats.totalVol)}</span>
+        </div>
+        {allLiqStats.lastEvent && (
+          <div className="liq-stat liq-last">
+            <span className="liq-stat-label">Son</span>
+            <span className="liq-stat-val">
+              {allLiqStats.lastEvent.side === 'SELL' ? '💀' : '💰'}{' '}
+              {formatLiqSize(allLiqStats.lastEvent.valueUSD)}
+            </span>
+          </div>
+        )}
+        <div className="liq-stat">
+          <span className={`liq-conn-dot ${liqConnected ? 'online' : ''}`}></span>
+          <span className="liq-stat-label">Liq Feed</span>
         </div>
       </div>
 
@@ -68,7 +118,7 @@ function App() {
         <div className="indicator-legend">
           <div className="legend-item">
             <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
-            <span>CVD (Kümülatif Hacim Delta)</span>
+            <span>CVD</span>
           </div>
           <div className="legend-item">
             <span className="legend-dot" style={{ background: '#a78bfa' }}></span>
@@ -80,21 +130,29 @@ function App() {
           </div>
           <div className="legend-item signal-legend">
             <span className="legend-icon">▲</span>
-            <span>AL / 💪 AL (güçlü)</span>
+            <span>AL / 💪 AL</span>
           </div>
           <div className="legend-item signal-legend">
             <span className="legend-icon" style={{ color: '#ef4444' }}>▼</span>
-            <span>SAT / 💪 SAT (güçlü)</span>
+            <span>SAT / 💪 SAT</span>
+          </div>
+          <div className="legend-item liq-legend">
+            <span>💀</span>
+            <span>Long Liq</span>
+          </div>
+          <div className="legend-item liq-legend">
+            <span>💰</span>
+            <span>Short Liq</span>
           </div>
         </div>
 
         <div className="chart-wrapper">
-          <Chart 
+          <Chart
             candles={candles}
-            signals={signals}
-            onChartReady={() => {}} 
+            signals={mergedSignals}
+            onChartReady={() => {}}
           />
-          
+
           {error && (
             <div className="chart-error">
               <p>⚠️ {error}</p>
@@ -103,7 +161,7 @@ function App() {
               </button>
             </div>
           )}
-          
+
           {!candles.length && !error && (
             <div className="chart-loading">
               <div className="loader"></div>
@@ -116,9 +174,9 @@ function App() {
       {/* Footer Info */}
       <div className="app-footer">
         <div className="footer-info">
-          <span>Veri Kaynağı: Binance</span>
+          <span>Veri Kaynağı: Binance Spot + Futures</span>
           <span>•</span>
-          <span>Gerçek zamanlı WebSocket + REST</span>
+          <span>WebSocket /market (2026 API)</span>
         </div>
         <div className="footer-note">
           Bu uygulama sadece eğitim amaçlıdır.

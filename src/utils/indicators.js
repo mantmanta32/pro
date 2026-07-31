@@ -259,3 +259,44 @@ export function generateSignals(candles) {
     ema21,
   };
 }
+
+/**
+ * Convert liquidation events to chart markers.
+ * Long liquidation (side=SELL 💀 red): forced sells → bearish pressure
+ * Short liquidation (side=BUY 💰 green): forced buys → bullish pressure
+ */
+export function generateLiquidationMarkers(liquidations, candles) {
+  if (!liquidations || liquidations.length === 0 || candles.length === 0) return [];
+
+  const candleTimes = new Map();
+  candles.forEach((c) => candleTimes.set(c.time, true));
+
+  const markers = [];
+
+  for (const liq of liquidations) {
+    const liqTime = Math.floor(liq.time / 1000);
+
+    if (candleTimes.has(liqTime)) {
+      const isLong = liq.side === 'SELL';
+      markers.push({
+        time: liqTime,
+        position: isLong ? 'aboveBar' : 'belowBar',
+        color: isLong ? '#ef4444' : '#22c55e',
+        shape: isLong ? 'arrowDown' : 'arrowUp',
+        text: isLong
+          ? `💀 ${formatLiqSize(liq.valueUSD)}`
+          : `💰 ${formatLiqSize(liq.valueUSD)}`,
+        size: liq.valueUSD > 500000 ? 4 : liq.valueUSD > 100000 ? 3 : 2,
+      });
+    }
+  }
+
+  return markers.slice(-50);
+}
+
+/** Format: $12.3K, $1.5M */
+export function formatLiqSize(value) {
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
