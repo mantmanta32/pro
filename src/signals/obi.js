@@ -1,20 +1,22 @@
-// Order Book Imbalance (OBI) — live depth tracker with U/u continuity
+// Order Book Imbalance (OBI) — live depth tracker with correct continuity model
 //
-// Subscribes to <symbol>@depth@100ms (2026 /public stream).
+// Subscribes to <symbol>@depth@100ms (2026 /public diff depth stream).
 // Maintains top-20 bids/asks; computes OBI in [−1,+1].
-// On gap: resets + re-fetches REST snapshot.
-// On REST fail: seeds from depth stream directly (geo-block resilient).
+//
+// Continuity model (Binance diff depth, verified live 2026):
+//   Diff depth delivers conflated batches at 100ms intervals.
+//   Between batches, sequence numbers naturally skip — this is NOT a gap.
+//   Gap detection: only if `u <= lastU` (stale/duplicate/rewind).
+//   `U > lastU + 1` is NORMAL in a conflated diff feed; do NOT treat as gap.
 //
 // Framework-agnostic (no React dependency).
-
-// ── Snapshot fetch ────────────────────────────────────────────
 
 const FUT_REST = 'https://fapi.binance.com/fapi/v1';
 
 async function fetchDepthSnapshot(symbol, levels = 20) {
   const url = `${FUT_REST}/depth?symbol=${symbol}&limit=${levels}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Depth snapshot error: ${res.status}`);
+  if (!res.ok) throw new Error(`Depth snapshot: ${res.status}`);
   const data = await res.json();
   return {
     lastUpdateId: data.lastUpdateId,
@@ -22,8 +24,6 @@ async function fetchDepthSnapshot(symbol, levels = 20) {
     asks: data.asks.map(([p, q]) => [parseFloat(p), parseFloat(q)]),
   };
 }
-
-// ── OBI engine ────────────────────────────────────────────────
 
 export class OBIEngine {
   constructor(opts = {}) {
@@ -36,11 +36,11 @@ export class OBIEngine {
     this.ready = false;
     this.gapCount = 0;
     this.resubscribeCount = 0;
-    this.seeding = false;       // building book from stream (no REST)
+    this.seeding = false;
     this.initError = null;
   }
 
-  /** Initialize from REST snapshot */
+  /** Initialize from REST snapshot; falls back to stream-seed on failure */
   async init(symbol) {
     this.reset();
     this.initError = null;
@@ -53,26 +53,28 @@ export class OBIEngine {
       this.ready = true;
       this.seeding = false;
     } catch (e) {
-      // REST failed — seed from stream
       this.initError = e.message;
       this.ready = false;
       this.seeding = true;
-      this.lastU = -1;  // accept first incoming update
+      this.lastU = -1;
     }
     return this;
   }
 
   /**
    * Apply a depth update event.
+   *   { U: firstUpdateId, u: finalUpdateId, b: [[price,qty],...], a: [[price,qty],...] }
    * Returns: { applied: boolean, gap: boolean }
    */
   apply(event) {
     const { U, u, b, a } = event;
-    if (typeof U !== 'number' || typeof u !== 'number') return { applied: false, gap: true };
+    if (typeof U !== 'number' || typeof u !== 'number') {
+      this.gapCount++;
+      return { applied: false, gap: true };
+    }
 
-    // ── Seeding mode: accept first update, then switch to ready ─
+    // ── Seeding mode: accept first update, set ready ──────────
     if (this.seeding) {
-      // First update received — seed the book from it
       this._applyLevels(b, a);
       this.lastU = u;
       this.seeding = false;
@@ -80,45 +82,39 @@ export class OBIEngine {
       return { applied: true, gap: false };
     }
 
-    // ── Normal continuity ─────────────────────────────────────
+    // ── Stale/duplicate check ─────────────────────────────────
+    // Diff depth conflates updates; U naturally skips between batches.
+    // The ONLY reliable staleness signal is `u <= lastU` (rewind/duplicate).
     if (!this.ready || u <= this.lastU) {
       return { applied: false, gap: false };
     }
 
-    if (U > this.lastU + 1) {
-      this.gapCount++;
-      return { applied: false, gap: true };
-    }
-
+    // ── Apply ─────────────────────────────────────────────────
     this._applyLevels(b, a);
     this.lastU = u;
     this._trim();
     return { applied: true, gap: false };
   }
 
-  /** Compute OBI: (ΣbidVol − ΣaskVol) / (ΣbidVol + ΣaskVol) */
+  /** OBI = (ΣbidVol − ΣaskVol) / (ΣbidVol + ΣaskVol) */
   compute() {
     if (!this.ready) return 0;
-    const sortedBids = [...this.bids.entries()].sort((a, b) => b[0] - a[0]);
-    const sortedAsks = [...this.asks.entries()].sort((a, b) => a[0] - b[0]);
-    let bidVol = 0, askVol = 0;
-    for (let i = 0; i < Math.min(this.levels, sortedBids.length); i++)
-      bidVol += sortedBids[i][0] * sortedBids[i][1];
-    for (let i = 0; i < Math.min(this.levels, sortedAsks.length); i++)
-      askVol += sortedAsks[i][0] * sortedAsks[i][1];
-    const total = bidVol + askVol;
-    if (total === 0) return 0;
-    return (bidVol - askVol) / total;
+    const sB = [...this.bids.entries()].sort((a, b) => b[0] - a[0]);
+    const sA = [...this.asks.entries()].sort((a, b) => a[0] - b[0]);
+    let bv = 0, av = 0;
+    for (let i = 0; i < Math.min(this.levels, sB.length); i++) bv += sB[i][0] * sB[i][1];
+    for (let i = 0; i < Math.min(this.levels, sA.length); i++) av += sA[i][0] * sA[i][1];
+    const t = bv + av;
+    return t === 0 ? 0 : (bv - av) / t;
   }
 
-  /** Best bid/ask */
   bestBidAsk() {
-    const bids = [...this.bids.entries()].sort((a, b) => b[0] - a[0]);
-    const asks = [...this.asks.entries()].sort((a, b) => a[0] - b[0]);
+    const b = [...this.bids.entries()].sort((a, b) => b[0] - a[0]);
+    const a = [...this.asks.entries()].sort((a, b) => a[0] - b[0]);
     return {
-      bestBid: bids.length > 0 ? bids[0][0] : null,
-      bestAsk: asks.length > 0 ? asks[0][0] : null,
-      spread: (bids.length > 0 && asks.length > 0) ? asks[0][0] - bids[0][0] : null,
+      bestBid: b.length > 0 ? b[0][0] : null,
+      bestAsk: a.length > 0 ? a[0][0] : null,
+      spread: (b.length > 0 && a.length > 0) ? a[0][0] - b[0][0] : null,
     };
   }
 
@@ -133,20 +129,15 @@ export class OBIEngine {
 
   snapshot() {
     return {
-      obi: this.compute(),
-      bestBidAsk: this.bestBidAsk(),
-      ready: this.ready,
-      seeding: this.seeding,
-      lastU: this.lastU,
-      gapCount: this.gapCount,
+      obi: this.compute(), bestBidAsk: this.bestBidAsk(),
+      ready: this.ready, seeding: this.seeding,
+      lastU: this.lastU, gapCount: this.gapCount,
       resubscribeCount: this.resubscribeCount,
-      bidLevels: this.bids.size,
-      askLevels: this.asks.size,
-      initError: this.initError,
+      bidLevels: this.bids.size, askLevels: this.asks.size,
+      initError: this.initError || null,
     };
   }
 
-  // ── internal ────────────────────────────────────────────────
   _applyLevels(b, a) {
     if (b) for (const [ps, qs] of b) {
       const p = parseFloat(ps), q = parseFloat(qs);
