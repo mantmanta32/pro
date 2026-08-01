@@ -96,4 +96,26 @@ describe('OBIEngine', () => {
     expect(bb.bestAsk).toBe(50010);
     expect(bb.spread).toBe(10);
   });
+
+  it('seeding mode: first depth update seeds book', () => {
+    // init() would have failed, seeding=true
+    obi.seeding = true;
+    obi.lastU = -1;
+    obi.ready = false;
+
+    const result = obi.apply({
+      U: 1, u: 5,
+      b: [['50000', '2.0'], ['49980', '1.5']],
+      a: [['50010', '3.0']],
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.gap).toBe(false);
+    expect(obi.ready).toBe(true);
+    expect(obi.seeding).toBe(false);
+    expect(obi.lastU).toBe(5);
+    expect(obi.bids.get(50000)).toBe(2);
+    expect(obi.bids.get(49980)).toBe(1.5);
+    expect(obi.asks.get(50010)).toBe(3);
+  });
 });
