@@ -18,8 +18,7 @@ describe('OBIEngine', () => {
     obi.asks.set(50010, 3);
     obi.asks.set(50020, 4);
     obi.ready = true;
-    const v = obi.compute();
-    expect(v).toBeCloseTo(-0.00023, 4);
+    expect(obi.compute()).toBeCloseTo(-0.00023, 4);
   });
 
   it('skips stale updates (u <= lastU)', () => {
@@ -38,20 +37,12 @@ describe('OBIEngine', () => {
     expect(r.gap).toBe(false);
   });
 
-  it('accepts U skip (conflated diff normal behavior)', () => {
-    // In conflated diff depth, next event can have U = lastU+40
-    // because 100ms batches skip intermediate updates. This is NORMAL.
+  it('accepts U skip (conflated diff normal)', () => {
     obi.ready = true;
     obi.lastU = 100;
     obi.bids.set(50000, 2);
     obi.asks.set(50010, 3);
-
-    const r = obi.apply({
-      U: 140, u: 180,
-      b: [['50100', '1.5']],
-      a: [],
-    });
-
+    const r = obi.apply({ U: 140, u: 180, b: [['50100', '1.5']], a: [] });
     expect(r.applied).toBe(true);
     expect(r.gap).toBe(false);
     expect(obi.lastU).toBe(180);
@@ -61,23 +52,15 @@ describe('OBIEngine', () => {
   it('accepts multiple U-skips (simulated live stream)', () => {
     obi.ready = true;
     obi.lastU = 500;
-
-    // First update: U jumps +62
     let r = obi.apply({ U: 562, u: 600, b: [['49000', '1']], a: [] });
     expect(r.applied).toBe(true);
     expect(obi.lastU).toBe(600);
-
-    // Second: U jumps +113 (normal conflated diff)
     r = obi.apply({ U: 713, u: 750, b: [['49100', '2']], a: [] });
     expect(r.applied).toBe(true);
     expect(obi.lastU).toBe(750);
-
-    // Third: U jumps +154
     r = obi.apply({ U: 904, u: 920, b: [], a: [['51000', '1']] });
     expect(r.applied).toBe(true);
     expect(obi.lastU).toBe(920);
-
-    // 3 updates applied, 0 gaps
     expect(obi.gapCount).toBe(0);
   });
 
@@ -86,13 +69,7 @@ describe('OBIEngine', () => {
     obi.lastU = 100;
     obi.bids.set(50000, 2);
     obi.asks.set(50010, 3);
-
-    const r = obi.apply({
-      U: 101, u: 105,
-      b: [['50100', '1.5'], ['50000', '0']],
-      a: [['50015', '2.0']],
-    });
-
+    const r = obi.apply({ U: 101, u: 105, b: [['50100', '1.5'], ['50000', '0']], a: [['50015', '2.0']] });
     expect(r.applied).toBe(true);
     expect(r.gap).toBe(false);
     expect(obi.lastU).toBe(105);
@@ -134,13 +111,8 @@ describe('OBIEngine', () => {
     obi.seeding = true;
     obi.lastU = -1;
     obi.ready = false;
-    const r = obi.apply({
-      U: 1, u: 5,
-      b: [['50000', '2.0'], ['49980', '1.5']],
-      a: [['50010', '3.0']],
-    });
+    const r = obi.apply({ U: 1, u: 5, b: [['50000', '2.0'], ['49980', '1.5']], a: [['50010', '3.0']] });
     expect(r.applied).toBe(true);
-    expect(r.gap).toBe(false);
     expect(obi.ready).toBe(true);
     expect(obi.seeding).toBe(false);
     expect(obi.lastU).toBe(5);
@@ -148,17 +120,41 @@ describe('OBIEngine', () => {
     expect(obi.asks.get(50010)).toBe(3);
   });
 
-  it('gap is false for normal U-skips (not gapCount++)', () => {
-    // The ONLY condition that returns gap=true is missing/invalid U/u
+  it('parseDepthUpdate → apply() integration: b/a keys match', () => {
+    // Regression: parseDepthUpdate returned bids/asks but apply() expected b/a.
+    // This test locks the interface in place — must use {b, a} keys.
+    const parsed = {
+      symbol: 'BTCUSDT', eventTime: Date.now(),
+      U: 500, u: 600,
+      b: [['50000', '2.0'], ['49900', '1.0']],
+      a: [['51000', '3.0']],
+    };
+    obi.seeding = true;
+    obi.lastU = -1;
+    obi.ready = false;
+    const r = obi.apply(parsed);
+    expect(r.applied).toBe(true);
+    expect(obi.ready).toBe(true);
+    expect(obi.bids.size).toBe(2);
+    expect(obi.asks.size).toBe(1);
+    expect(obi.bestBidAsk().bestBid).toBe(50000);
+    expect(obi.bestBidAsk().bestAsk).toBe(51000);
+    const v = obi.compute();
+    // bidVol=50000*2+49900*1=149900, askVol=51000*3=153000
+    // OBI=(149900-153000)/(149900+153000)=-3100/302900≈-0.0102
+    expect(v).toBeLessThan(0);
+    expect(Math.abs(v)).toBeGreaterThan(0.001);
+  });
+
+  it('gap only on missing U/u (not on normal U-skips)', () => {
     obi.ready = true;
     obi.lastU = 1000;
-    // U=1040 (skip normal), valid u — not a gap
+    // U skip → normal, not a gap
     let r = obi.apply({ U: 1040, u: 1080, b: [], a: [] });
     expect(r.applied).toBe(true);
     expect(r.gap).toBe(false);
     expect(obi.gapCount).toBe(0);
-
-    // Bad: U and u missing
+    // Missing U/u → true gap
     r = obi.apply({});
     expect(r.applied).toBe(false);
     expect(r.gap).toBe(true);

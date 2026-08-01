@@ -117,7 +117,7 @@ export const parseDepthUpdate = (data) => {
     const json = typeof data === 'string' ? JSON.parse(data) : data;
     if (json.e !== 'depthUpdate') return null;
     return { symbol: json.s, eventTime: json.E, U: json.U, u: json.u,
-      bids: json.b, asks: json.a };
+      b: json.b, a: json.a };
   } catch (e) { return null; }
 };
 
