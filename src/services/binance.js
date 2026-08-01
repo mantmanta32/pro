@@ -8,6 +8,7 @@
 // Stream mapping:
 //   Kline/Candlestick → Market
 //   Liquidations      → Market
+//   Aggregate Trades  → Market
 //   Book Ticker       → Public
 //   Depth             → Public
 
@@ -16,12 +17,11 @@ const SPOT_REST  = 'https://api.binance.com/api/v3';
 const FUT_REST   = 'https://fapi.binance.com/fapi/v1';
 
 // ── WebSocket endpoints (2026 new structure) ──────────────────
-const WS_MARKET  = 'wss://fstream.binance.com/market';   // kline, liquidations, aggTrade, ticker...
-const WS_PUBLIC  = 'wss://fstream.binance.com/public';   // depth, bookTicker...
+const WS_MARKET  = 'wss://fstream.binance.com/market';
+const WS_PUBLIC  = 'wss://fstream.binance.com/public';
 
 // ── Klines (spot REST, futures WS for real-time) ──────────────
 export const fetchKlines = async (symbol, interval, limit = 200) => {
-  // Spot REST for initial history (still works fine)
   const url = `${SPOT_REST}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Kline API error: ${res.status}`);
@@ -57,24 +57,22 @@ export const fetchOpenInterest = async (symbol) => {
   const res = await fetch(url);
   if (!res.ok) return null;
   const data = await res.json();
-  return {
-    openInterest: parseFloat(data.openInterest),
-    timestamp: data.time,
-  };
+  return { openInterest: parseFloat(data.openInterest), timestamp: data.time };
 };
 
-// ── Kline WebSocket URL (futures → Market category) ────────────
+// ── Kline WebSocket URL ───────────────────────────────────────
 export const getWebSocketUrl = (symbol, interval) => {
-  const lowerSymbol = symbol.toLowerCase();
-  // Raw stream mode → 2026 /market path
-  return `${WS_MARKET}/ws/${lowerSymbol}@kline_${interval}`;
+  return `${WS_MARKET}/ws/${symbol.toLowerCase()}@kline_${interval}`;
 };
 
 // ── Liquidation WebSocket URL (all symbols) ───────────────────
 export const getLiquidationWsUrl = () => {
-  // All-market liquidation stream → /market
-  // Raw stream: wss://fstream.binance.com/market/ws/!forceOrder@arr
   return `${WS_MARKET}/ws/!forceOrder@arr`;
+};
+
+// ── Aggregate Trade WebSocket URL (per symbol) ───────────────
+export const getAggTradeWsUrl = (symbol) => {
+  return `${WS_MARKET}/ws/${symbol.toLowerCase()}@aggTrade`;
 };
 
 // ── Symbol formatter ──────────────────────────────────────────
@@ -85,43 +83,52 @@ export const formatSymbol = (input) => {
 };
 
 // ── Liquidation event parser ──────────────────────────────────
-// Field reference (official 2026 docs):
-//   e  → "forceOrder"
-//   E  → event time (ms)
-//   o  → { s: symbol, S: side, o: orderType, f: timeInForce,
-//          q: origQty, p: price, ap: avgPrice, X: status,
-//          l: lastFilledQty, z: accumFilledQty, T: tradeTime }
-//   st → symbol type (1=USDS-M, 2=COIN-M) — new after CM migration
-//   ps → pair symbol — new after CM migration
-//
-// Side mapping:
-//   SELL → Long position liquidated (trader was long, forced to sell)
-//   BUY  → Short position liquidated (trader was short, forced to buy)
 export const parseLiquidationEvent = (data) => {
   try {
     const json = typeof data === 'string' ? JSON.parse(data) : data;
     if (json.e !== 'forceOrder') return null;
-
     const o = json.o;
-    const price = parseFloat(o.ap) || parseFloat(o.p);
-    const qty = parseFloat(o.q);
-    const valueUSD = price * qty;
-
     return {
       symbol: o.s,
-      side: o.S,                                        // SELL=long liq, BUY=short liq
+      side: o.S,
+      price: parseFloat(o.ap) || parseFloat(o.p),
+      quantity: parseFloat(o.q),
+      valueUSD: (parseFloat(o.ap) || parseFloat(o.p)) * parseFloat(o.q),
+      time: json.E,
+      orderType: o.o,
+      timeInForce: o.f,
+      status: o.X,
+      symbolType: json.st || null,
+      pairSymbol: json.ps || o.s,
+    };
+  } catch (e) { return null; }
+};
+
+// ── Aggregate Trade parser ────────────────────────────────────
+// 2026 docs fields:
+//   e  → "aggTrade", E → event time, s → symbol
+//   p  → price, q → quantity (total), T → trade time
+//   m  → is the buyer the market maker?
+//
+// Key: m=true → buyer is maker → seller is aggressive taker → bearish
+//      m=false → buyer is taker → buyer is aggressive → bullish
+export const parseAggTrade = (data) => {
+  try {
+    const json = typeof data === 'string' ? JSON.parse(data) : data;
+    if (json.e !== 'aggTrade') return null;
+    const price = parseFloat(json.p);
+    const qty = parseFloat(json.q);
+    return {
+      symbol: json.s,
       price,
       quantity: qty,
-      valueUSD,
-      time: json.E,
-      orderType: o.o,                                   // LIMIT
-      timeInForce: o.f,                                 // IOC
-      status: o.X,                                      // FILLED
-      symbolType: json.st || null,                      // 1=USDS-M, 2=COIN-M (2026 new)
-      pairSymbol: json.ps || o.s,                       // (2026 new)
+      valueUSD: price * qty,
+      time: json.E || json.T,
+      tradeTime: json.T,
+      isBuyerMaker: json.m === true,
+      isTakerBuy: json.m !== true,
+      aggTradeId: json.a,
+      symbolType: json.st || null,
     };
-  } catch (e) {
-    console.error('Liquidation parse error:', e);
-    return null;
-  }
+  } catch (e) { return null; }
 };

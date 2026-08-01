@@ -300,3 +300,63 @@ export function formatLiqSize(value) {
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
   return `$${value.toFixed(0)}`;
 }
+
+/**
+ * Convert whale trades to chart markers.
+ *
+ * 🐋 WHALE  ($100K–500K)   → blue circle on price level
+ * 🦈 MEGA   ($500K+)        → purple diamond on price level
+ * ⚡ ABSORB (low price move) → yellow dot at bar end
+ *
+ * isTakerBuy=true  → green-ish (aggressive buy)
+ * isTakerBuy=false → red-ish (aggressive sell)
+ */
+export function generateWhaleMarkers(whales, candles) {
+  if (!whales || whales.length === 0 || candles.length === 0) return [];
+
+  const candleTimes = new Map();
+  candles.forEach((c) => candleTimes.set(c.time, true));
+
+  const markers = [];
+
+  for (const w of whales) {
+    const wt = Math.floor(w.time / 1000);
+
+    // Try to snap to nearest candle
+    if (!candleTimes.has(wt)) continue;
+
+    const isBuy = w.isTakerBuy;
+    const color = isBuy ? '#22c55e' : '#ef4444';
+
+    if (w.isAbsorption) {
+      markers.push({
+        time: wt,
+        position: 'inBar',
+        color: '#fbbf24',
+        shape: 'circle',
+        text: `⚡ ${formatLiqSize(w.valueUSD)}`,
+        size: 2,
+      });
+    } else if (w.level === 'mega') {
+      markers.push({
+        time: wt,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color: '#a855f7',
+        shape: 'arrowUp',
+        text: `🦈 ${formatLiqSize(w.valueUSD)}`,
+        size: 4,
+      });
+    } else {
+      markers.push({
+        time: wt,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color,
+        shape: 'circle',
+        text: `🐋 ${formatLiqSize(w.valueUSD)}`,
+        size: 3,
+      });
+    }
+  }
+
+  return markers.slice(-30);
+}

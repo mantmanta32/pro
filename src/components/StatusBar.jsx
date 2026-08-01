@@ -1,4 +1,4 @@
-export default function StatusBar({ isConnected, statusText, liqConnected }) {
+export default function StatusBar({ isConnected, statusText, liqConnected, whaleConnected }) {
   return (
     <div className="status-bar">
       <div className="status-indicator">
@@ -6,9 +6,15 @@ export default function StatusBar({ isConnected, statusText, liqConnected }) {
         <span className="status-text">{statusText}</span>
       </div>
       {liqConnected !== undefined && (
-        <div className="status-indicator liq-status">
+        <div className="status-indicator feed-status">
           <div className={`status-mini-dot ${liqConnected ? 'online' : ''}`} />
           <span className="status-text">Liq</span>
+        </div>
+      )}
+      {whaleConnected !== undefined && (
+        <div className="status-indicator feed-status">
+          <div className={`status-mini-dot ${whaleConnected ? 'online' : ''}`} />
+          <span className="status-text">Whale</span>
         </div>
       )}
       <div className="status-info">
