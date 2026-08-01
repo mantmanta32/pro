@@ -42,13 +42,8 @@ export const fetch24hTicker = async (symbol) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error('Ticker API error');
   const data = await res.json();
-  return {
-    price: parseFloat(data.lastPrice),
-    change: parseFloat(data.priceChangePercent),
-    high: parseFloat(data.highPrice),
-    low: parseFloat(data.lowPrice),
-    volume: parseFloat(data.volume),
-  };
+  return { price: parseFloat(data.lastPrice), change: parseFloat(data.priceChangePercent),
+    high: parseFloat(data.highPrice), low: parseFloat(data.lowPrice), volume: parseFloat(data.volume) };
 };
 
 // ── Futures Open Interest ─────────────────────────────────────
@@ -60,19 +55,16 @@ export const fetchOpenInterest = async (symbol) => {
   return { openInterest: parseFloat(data.openInterest), timestamp: data.time };
 };
 
-// ── Kline WebSocket URL ───────────────────────────────────────
-export const getWebSocketUrl = (symbol, interval) => {
-  return `${WS_MARKET}/ws/${symbol.toLowerCase()}@kline_${interval}`;
-};
-
-// ── Liquidation WebSocket URL (all symbols) ───────────────────
-export const getLiquidationWsUrl = () => {
-  return `${WS_MARKET}/ws/!forceOrder@arr`;
-};
-
-// ── Aggregate Trade WebSocket URL (per symbol) ───────────────
-export const getAggTradeWsUrl = (symbol) => {
-  return `${WS_MARKET}/ws/${symbol.toLowerCase()}@aggTrade`;
+// ── WebSocket URL builders ───────────────────────────────────
+export const getWebSocketUrl = (symbol, interval) =>
+  `${WS_MARKET}/ws/${symbol.toLowerCase()}@kline_${interval}`;
+export const getLiquidationWsUrl = () => `${WS_MARKET}/ws/!forceOrder@arr`;
+export const getAggTradeWsUrl = (symbol) => `${WS_MARKET}/ws/${symbol.toLowerCase()}@aggTrade`;
+export const getDepthWsUrl = (symbol, speed = 100) => `${WS_PUBLIC}/ws/${symbol.toLowerCase()}@depth@${speed}ms`;
+export const getBookTickerWsUrl = (symbol) => `${WS_PUBLIC}/ws/${symbol.toLowerCase()}@bookTicker`;
+export const getCombinedStreamUrl = (type, streams) => {
+  const base = type === 'public' ? WS_PUBLIC : WS_MARKET;
+  return `${base}/stream?streams=${streams.join('/')}`;
 };
 
 // ── Symbol formatter ──────────────────────────────────────────
@@ -82,53 +74,52 @@ export const formatSymbol = (input) => {
   return sym;
 };
 
-// ── Liquidation event parser ──────────────────────────────────
+// ── Parsers ───────────────────────────────────────────────────
 export const parseLiquidationEvent = (data) => {
   try {
     const json = typeof data === 'string' ? JSON.parse(data) : data;
     if (json.e !== 'forceOrder') return null;
     const o = json.o;
-    return {
-      symbol: o.s,
-      side: o.S,
-      price: parseFloat(o.ap) || parseFloat(o.p),
-      quantity: parseFloat(o.q),
-      valueUSD: (parseFloat(o.ap) || parseFloat(o.p)) * parseFloat(o.q),
-      time: json.E,
-      orderType: o.o,
-      timeInForce: o.f,
-      status: o.X,
-      symbolType: json.st || null,
-      pairSymbol: json.ps || o.s,
-    };
+    return { symbol: o.s, side: o.S, price: parseFloat(o.ap) || parseFloat(o.p),
+      quantity: parseFloat(o.q), valueUSD: (parseFloat(o.ap) || parseFloat(o.p)) * parseFloat(o.q),
+      time: json.E, orderType: o.o, timeInForce: o.f, status: o.X,
+      symbolType: json.st || null, pairSymbol: json.ps || o.s };
   } catch (e) { return null; }
 };
 
-// ── Aggregate Trade parser ────────────────────────────────────
-// 2026 docs fields:
-//   e  → "aggTrade", E → event time, s → symbol
-//   p  → price, q → quantity (total), T → trade time
-//   m  → is the buyer the market maker?
-//
 // Key: m=true → buyer is maker → seller is aggressive taker → bearish
 //      m=false → buyer is taker → buyer is aggressive → bullish
 export const parseAggTrade = (data) => {
   try {
     const json = typeof data === 'string' ? JSON.parse(data) : data;
     if (json.e !== 'aggTrade') return null;
-    const price = parseFloat(json.p);
-    const qty = parseFloat(json.q);
-    return {
-      symbol: json.s,
-      price,
-      quantity: qty,
-      valueUSD: price * qty,
-      time: json.E || json.T,
-      tradeTime: json.T,
-      isBuyerMaker: json.m === true,
-      isTakerBuy: json.m !== true,
-      aggTradeId: json.a,
-      symbolType: json.st || null,
-    };
+    const price = parseFloat(json.p), qty = parseFloat(json.q);
+    return { symbol: json.s, price, quantity: qty, valueUSD: price * qty,
+      time: json.E || json.T, tradeTime: json.T,
+      isBuyerMaker: json.m === true, isTakerBuy: json.m !== true,
+      aggTradeId: json.a, symbolType: json.st || null };
   } catch (e) { return null; }
 };
+
+// { e: "bookTicker", s, b, B, a, A }
+export const parseBookTicker = (data) => {
+  try {
+    const json = typeof data === 'string' ? JSON.parse(data) : data;
+    if (json.e !== 'bookTicker') return null;
+    return { symbol: json.s, bestBid: parseFloat(json.b), bestBidQty: parseFloat(json.B),
+      bestAsk: parseFloat(json.a), bestAskQty: parseFloat(json.A) };
+  } catch (e) { return null; }
+};
+
+// { e: "depthUpdate", E, s, U, u, b: [[p,q],...], a: [[p,q],...] }
+export const parseDepthUpdate = (data) => {
+  try {
+    const json = typeof data === 'string' ? JSON.parse(data) : data;
+    if (json.e !== 'depthUpdate') return null;
+    return { symbol: json.s, eventTime: json.E, U: json.U, u: json.u,
+      bids: json.b, asks: json.a };
+  } catch (e) { return null; }
+};
+
+// Exported for probe harness
+export { WS_MARKET, WS_PUBLIC, FUT_REST, SPOT_REST };
